@@ -1,0 +1,41 @@
+#!/bin/sh -e
+
+PUBLIC_HTML_CURRENT=/var/www/servers/genomethreader.org/htdocs
+DISTRIBUTIONS=distributions
+ZBH_MACHINE=gremme@marburg.zbh.uni-hamburg.de
+ZBH_DIR=/projects/gth
+
+if [ $# -ne 1 ]
+then
+  echo "provide distribution dir as argument" >&2
+  exit 1
+fi
+
+DISTRIBUTION_DIR=$1
+
+# install locally
+echo "install locally"
+cp $DISTRIBUTION_DIR/*.tar.gz $PUBLIC_HTML_CURRENT/$DISTRIBUTIONS
+
+# install at ZBH
+echo "remove old distributions at the ZBH"
+ssh $ZBH_MACHINE "rm -rf $ZBH_DIR/*" || true
+
+echo "copy new distributions to the ZBH"
+scp $DISTRIBUTION_DIR/*.tar.gz $ZBH_MACHINE:$ZBH_DIR
+
+echo "extract new distributions"
+for DISTRIBUTION in `cd $DISTRIBUTION_DIR && ls *.tar.gz`
+do
+  ssh $ZBH_MACHINE "cd $ZBH_DIR && tar xzf $DISTRIBUTION"
+done
+
+echo "remove tar files"
+ssh $ZBH_MACHINE "rm -rf $ZBH_DIR/*.tar.gz"
+
+echo "rename distribution directories"
+for SINGLE_DISTRIBUTION in `ssh $ZBH_MACHINE "cd $ZBH_DIR && ls"`
+do
+  NEW_DISTRIBUTION_NAME=`echo $SINGLE_DISTRIBUTION | sed -e 's/gth-[0-9.]*-//' -e 's/.tar.gz//'`
+  ssh $ZBH_MACHINE "cd $ZBH_DIR && mv $SINGLE_DISTRIBUTION  $NEW_DISTRIBUTION_NAME"
+done

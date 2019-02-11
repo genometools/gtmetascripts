@@ -1,0 +1,40 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+GT_SRC_DIR=/var/www/servers/genometools.org/htdocs/pub
+GT_TAR_NAME=genometools-unstable.tar.gz
+GT_DIR=genometools-unstable
+METASCRIPTS_DIR=$HOME/gtmetascripts
+TAR=tar
+
+if [ $GT_SRC_DIR/$GT_TAR_NAME -nt $METASCRIPTS_DIR/gt_build/$GT_TAR_NAME ] \
+   && is_unique
+then
+  cp -f $GT_SRC_DIR/$GT_TAR_NAME $METASCRIPTS_DIR/gt_build
+  rm -rf $METASCRIPTS_DIR/gt_build/$GT_DIR
+  cd $METASCRIPTS_DIR/gt_build
+  tar xzf $GT_TAR_NAME
+  cd $GT_DIR
+
+  VERSION=`cat VERSION`
+  DISTDIR="$METASCRIPTS_DIR/gtdistributions-$VERSION"
+  NIGHTLYBUILDDIR=/var/www/servers/genometools.org/htdocs/pub/nightly_builds
+  echo "make sure distribution directory \"$DISTDIR\" exists"
+  test -d $DISTDIR || mkdir -p $DISTDIR
+
+  echo "build local (32bit)"
+  TMPFILE=`mktemp` || exit 1
+  make cairo=no amalgamation=yes manuals dist > $TMPFILE
+  DISTRIBUTION=`tail -n 1 $TMPFILE`
+  cp -f $DISTRIBUTION $DISTDIR
+  cp -f $DISTRIBUTION $NIGHTLYBUILDDIR
+
+  echo "build local (64bit)"
+  TMPFILE=`mktemp` || exit 1
+  make cleanup
+  make 64bit=yes amalgamation=yes manuals dist > $TMPFILE
+  DISTRIBUTION=`tail -n 1 $TMPFILE`
+  cp -f $DISTRIBUTION $DISTDIR
+  cp -f $DISTRIBUTION $NIGHTLYBUILDDIR
+fi

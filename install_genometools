@@ -1,0 +1,16 @@
+#!/bin/sh -e
+
+PUBLIC_HTML_CURRENT=/var/www/servers/genometools.org/htdocs
+DISTRIBUTIONS=pub/binary_distributions
+
+if [ $# -ne 1 ]
+then
+  echo "provide distribution dir as argument" >&2
+  exit 1
+fi
+
+DISTRIBUTION_DIR=$1
+
+# install locally
+echo "install locally"
+cp $DISTRIBUTION_DIR/*.tar.gz $PUBLIC_HTML_CURRENT/$DISTRIBUTIONS

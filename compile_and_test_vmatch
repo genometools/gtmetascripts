@@ -1,0 +1,57 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+GT_SRC_DIR=/var/www/servers/genometools.org/htdocs/pub
+GT_TAR_NAME=genometools-unstable.tar.gz
+GT_DIR=genometools-unstable
+
+VMATCH_SRC_DIR=$HOME/lscsa
+VMATCH_TAR_NAME=vstree-src-current.tar.gz
+VMATCH_DIR=vstree-src-current
+METASCRIPTS_DIR=$HOME/gtmetascripts
+
+# source git repository used for `git show`
+export GIT_DIR=$HOME/lscsa/vstree.git
+
+if [ $GT_SRC_DIR/$GT_TAR_NAME -nt $METASCRIPTS_DIR/vmatch/$GT_TAR_NAME ] ||
+   [ $VMATCH_SRC_DIR/$VMATCH_TAR_NAME -nt \
+     $METASCRIPTS_DIR/vmatch/$VMATCH_TAR_NAME ] && is_unique
+then
+  COMMIT=`zcat $VMATCH_SRC_DIR/$VMATCH_TAR_NAME | git get-tar-commit-id`
+  git show --stat $COMMIT
+
+  # build libgenometools first
+  cp -f $GT_SRC_DIR/$GT_TAR_NAME $METASCRIPTS_DIR/vmatch
+  rm -rf $METASCRIPTS_DIR/vmatch/$GT_DIR
+  rm -rf $METASCRIPTS_DIR/vmatch/genometools
+  cd $METASCRIPTS_DIR/vmatch
+  tar xzf $GT_TAR_NAME
+  mv $GT_DIR genometools
+  cd genometools
+  make cairo=no amalgamation=yes > /dev/null
+
+  # set up files
+  cp -f $VMATCH_SRC_DIR/$VMATCH_TAR_NAME $METASCRIPTS_DIR/vmatch
+  rm -rf $METASCRIPTS_DIR/vmatch/$VMATCH_DIR
+  cd $METASCRIPTS_DIR/vmatch
+  tar xzf $VMATCH_TAR_NAME
+  cd $VMATCH_DIR/src
+
+  # compile (32bit)
+  echo "build local (32bit)"
+  mklink.sh linux-gcc
+  make licensemanager=no > /dev/null
+
+  # test (32bit)
+  make licensemanager=no check > /dev/null
+
+  # compile (64bit)
+  echo "build local (64bit)"
+  mklink.sh linux-gcc-64
+  make cleanup
+  make licensemanager=no > /dev/null
+
+  # test (64bit)
+  make licensemanager=no check > /dev/null
+fi

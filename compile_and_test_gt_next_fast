@@ -1,0 +1,29 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+GT_SRC_DIR=/var/www/pub
+GT_TAR_NAME=genometools-next.tar.gz
+GT_DIR=genometools-next
+METASCRIPTS_DIR=$HOME/gtmetascripts
+INSTALL_DIR=$METASCRIPTS_DIR/gt_next_fast/$GT_DIR/install
+
+# source git repository used for `git show`
+export GIT_DIR=/var/www/pub/git/genometools.git
+
+if [ $GT_SRC_DIR/$GT_TAR_NAME -nt $METASCRIPTS_DIR/gt_next_fast/$GT_TAR_NAME ] \
+   && is_unique
+then
+  COMMIT=`zcat $GT_SRC_DIR/$GT_TAR_NAME | git get-tar-commit-id`
+  git show --stat $COMMIT
+
+  mkdir -p $METASCRIPTS_DIR/gt_next_fast
+  cp -f $GT_SRC_DIR/$GT_TAR_NAME $METASCRIPTS_DIR/gt_next_fast
+  rm -rf $METASCRIPTS_DIR/gt_next_fast/$GT_DIR
+  cd $METASCRIPTS_DIR/gt_next_fast
+  tar xzf $GT_TAR_NAME
+  cd $GT_DIR
+
+  make 64bit=yes > /dev/null
+  make 64bit=yes test
+fi

@@ -1,0 +1,32 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+ulimit -d 1000000
+ulimit -m 1000000
+ulimit -v 1000000
+
+GT_SRC_DIR=/var/www/servers/genometools.org/htdocs/pub
+GT_TAR_NAME=genometools-unstable.tar.gz
+GT_DIR=genometools-unstable
+METASCRIPTS_DIR=$HOME/gtmetascripts
+INSTALL_DIR=$METASCRIPTS_DIR/gt_mingw/$GT_DIR/install
+
+# source git repository used for `git show`
+export GIT_DIR=/var/www/pub/git/genometools.git
+
+if [ $GT_SRC_DIR/$GT_TAR_NAME -nt $METASCRIPTS_DIR/gt_mingw/$GT_TAR_NAME ] \
+   && is_unique
+then
+  COMMIT=`zcat $GT_SRC_DIR/$GT_TAR_NAME | git get-tar-commit-id`
+  git show --stat $COMMIT
+
+  mkdir -p $METASCRIPTS_DIR/gt_mingw
+  cp -f $GT_SRC_DIR/$GT_TAR_NAME $METASCRIPTS_DIR/gt_mingw
+  rm -rf $METASCRIPTS_DIR/gt_mingw/$GT_DIR
+  cd $METASCRIPTS_DIR/gt_mingw
+  tar xzf $GT_TAR_NAME
+  cd $GT_DIR
+
+  scripts/build_windows.sh > /dev/null
+fi

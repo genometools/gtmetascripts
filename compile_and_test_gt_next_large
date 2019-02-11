@@ -1,0 +1,46 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+GT_SRC_DIR=/var/www/pub
+GT_TAR_NAME=genometools-next.tar.gz
+GT_DIR=genometools-next
+METASCRIPTS_DIR=$HOME/gtmetascripts
+
+# source git repository used for `git show`
+export GIT_DIR=/var/www/pub/git/genometools.git
+
+if [ $GT_SRC_DIR/$GT_TAR_NAME -nt $METASCRIPTS_DIR/gt_next_large/$GT_TAR_NAME ] \
+    && is_unique
+then
+  COMMIT=`zcat $GT_SRC_DIR/$GT_TAR_NAME | git get-tar-commit-id`
+  git show --stat $COMMIT
+
+  echo "update gttestdata"
+  unset GIT_DIR
+  cd $HOME/gttestdata
+  git pull
+
+  mkdir -p $METASCRIPTS_DIR/gt_next_large
+  cp -f $GT_SRC_DIR/$GT_TAR_NAME $METASCRIPTS_DIR/gt_next_large
+  rm -rf $METASCRIPTS_DIR/gt_next_large/$GT_DIR
+  cd $METASCRIPTS_DIR/gt_next_large
+  tar xzf $GT_TAR_NAME
+  cd $GT_DIR
+  echo "large test"
+  cd src/external
+  cp $METASCRIPTS_DIR/hmmer-2.3.2.tar.gz .
+  tar -xzf hmmer-2.3.2.tar.gz
+  rm -f hmmer-2.3.2.tar.gz
+  cd ../..
+  make 64bit=yes with-hmmer=yes > /dev/null
+  make 64bit=yes gttestdata=$HOME/gttestdata memcheck=yes test
+  echo "test threaded version"
+  make cleanup
+  make 64bit=yes threads=yes > /dev/null
+  valgrind --tool=helgrind bin/gt -j 8 -test > /dev/null
+  echo "test with amalgamation=yes and assert=no"
+  make cleanup
+  make 64bit=yes amalgamation=yes > /dev/null
+  make 64bit=yes amalgamation=yes assert=no test
+fi

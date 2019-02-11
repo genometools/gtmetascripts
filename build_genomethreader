@@ -1,0 +1,103 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+LM_SRC_DIR=$HOME/lscsa
+LM_TAR_NAME=licensemanager-src-current.tar.gz
+LM_DIR=licensemanager-src-current
+
+GT_SRC_DIR=/var/www/servers/genometools.org/htdocs/pub
+GT_TAR_NAME=genometools-unstable.tar.gz
+GT_DIR=genometools-unstable
+
+GTH_SRC_DIR=$HOME/gth
+GTH_TAR_NAME=genomethreader-src-current.tar.gz
+GTH_DIR=genomethreader-src-current
+
+VMATCH_SRC_DIR=$HOME/lscsa
+VMATCH_TAR_NAME=vstree-src-current.tar.gz
+VMATCH_DIR=vstree-src-current
+
+METASCRIPTS_DIR=$HOME/gtmetascripts
+
+if ([ $LM_SRC_DIR/$LM_TAR_NAME -nt $METASCRIPTS_DIR/gth_build/$LM_TAR_NAME ] ||\
+    [ $GT_SRC_DIR/$GT_TAR_NAME -nt $METASCRIPTS_DIR/gth_build/$GT_TAR_NAME ] ||
+   [ $GTH_SRC_DIR/$GTH_TAR_NAME -nt $METASCRIPTS_DIR/gth_build/$GTH_TAR_NAME ] ||
+   [ $VMATCH_SRC_DIR/$VMATCH_TAR_NAME -nt $METASCRIPTS_DIR/gth_build/$VMATCH_TAR_NAME ])\
+   && is_unique
+then
+  # build libgenometools (32bit)
+  cp -f $GT_SRC_DIR/$GT_TAR_NAME $METASCRIPTS_DIR/gth_build
+  rm -rf $METASCRIPTS_DIR/gth_build/$GT_DIR
+  rm -rf $METASCRIPTS_DIR/gth_build/genometools
+  cd $METASCRIPTS_DIR/gth_build
+  tar xzf $GT_TAR_NAME
+  mv $GT_DIR genometools
+  cd genometools
+  make 32bit=yes cairo=no amalgamation=yes > /dev/null
+
+  # build license manager library (32bit)
+  cp -f $LM_SRC_DIR/$LM_TAR_NAME $METASCRIPTS_DIR/gth_build
+  rm -rf $METASCRIPTS_DIR/gth_build/$LM_DIR
+  rm -rf $METASCRIPTS_DIR/gth_build/licensemanager
+  cd $METASCRIPTS_DIR/gth_build
+  tar xzf $LM_TAR_NAME
+  mv $LM_DIR licensemanager
+  cd licensemanager
+  make
+
+  # build vstree (32bit)
+  cp -f $VMATCH_SRC_DIR/$VMATCH_TAR_NAME $METASCRIPTS_DIR/gth_build
+  rm -rf $METASCRIPTS_DIR/gth_build/$VMATCH_DIR
+  rm -rf $METASCRIPTS_DIR/gth_build/vstree
+  cd $METASCRIPTS_DIR/gth_build
+  tar xzf $VMATCH_TAR_NAME
+  mv $VMATCH_DIR vstree
+  cd vstree/src
+  mklink.sh linux-gcc
+  make > /dev/null
+
+  # build GenomeThreader (32bit)
+  cp -f $GTH_SRC_DIR/$GTH_TAR_NAME $METASCRIPTS_DIR/gth_build
+  rm -rf $METASCRIPTS_DIR/gth_build/$GTH_DIR
+  cd $METASCRIPTS_DIR/gth_build
+  tar xzf $GTH_TAR_NAME
+  cd $GTH_DIR
+
+  VERSION=`cat VERSION`
+  DISTDIR="$METASCRIPTS_DIR/gthdistributions-$VERSION"
+  echo "make sure distribution directory \"$DISTDIR\" exists"
+  test -d $DISTDIR || mkdir -p $DISTDIR
+
+  echo "build local (32bit)"
+  TMPFILE=`mktemp` || exit 1
+  make amalgamation=yes > /dev/null
+  make amalgamation=yes train dist > $TMPFILE
+  DISTRIBUTION=`tail -n 1 $TMPFILE`
+  cp -f $DISTRIBUTION $DISTDIR
+
+  # build libgenometools (64bit)
+  cd $METASCRIPTS_DIR/gth_build/genometools
+  make cleanup
+  make 64bit=yes cairo=no amalgamation=yes > /dev/null
+
+  # build license manager library (64bit)
+  cd $METASCRIPTS_DIR/gth_build/licensemanager
+  make 64bit=yes
+
+  # build vstree (64bit)
+  cd $METASCRIPTS_DIR/gth_build/vstree/src
+  mklink.sh linux-gcc-64
+  make cleanup
+  make > /dev/null
+
+  # build GenomeThreader (64bit)
+  echo "build local (64bit)"
+  cd $METASCRIPTS_DIR/gth_build/$GTH_DIR
+  TMPFILE=`mktemp` || exit 1
+  make cleanup
+  make 64bit=yes amalgamation=yes > /dev/null
+  make 64bit=yes amalgamation=yes train dist > $TMPFILE
+  DISTRIBUTION=`tail -n 1 $TMPFILE`
+  cp -f $DISTRIBUTION $DISTDIR
+fi

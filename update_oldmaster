@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+. uniqueness.sh
+
+cd $HOME/gtmetascripts/genometools
+git pull > /dev/null
+git push oldmaster > /dev/null 2>&1
